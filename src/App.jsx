@@ -1,6 +1,7 @@
 import { useState } from "react";
 import CreatePage from "./CreatePage";
 import DownloadPage from "./DownloadPage";
+import IMG from "/public/logo.svg";
 
 function App() {
   const [route, setRoute] = useState("create");
@@ -19,7 +20,7 @@ function App() {
     <div className="container mx-auto px-4 py-8 max-w-6xl">
       <header className="flex items-center mb-12 justify-between">
         <div className="flex items-center">
-          <img src="/public/logo.svg" className="h-10" alt="AI Studio" />
+          <img src={IMG} className="h-10" alt="AI Studio" />
         </div>
         <ul className="ml-4 text-sm text-zinc-400 flex gap-8">
           <a
