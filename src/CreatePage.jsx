@@ -1,4 +1,4 @@
-import { useCallback, useEffect, useRef, useState } from "react";
+import { useEffect, useRef, useState } from "react";
 
 function CreatePage({
   addDownloadedImage,
@@ -37,15 +37,15 @@ function CreatePage({
     fetchModels();
   }, []);
 
-  const generateRandomSeed = useCallback(() => {
+  const generateRandomSeed = () => {
     return Math.floor(Math.random() * 1000000000);
-  }, []);
+  };
 
   useEffect(() => {
     setSeed(generateRandomSeed().toString());
-  }, [generateRandomSeed]);
+  }, []);
 
-  const handleRatioChange = useCallback((ratio) => {
+  const handleRatioChange = (ratio) => {
     switch (ratio) {
       case "1:1":
         setWidth(1024);
@@ -66,119 +66,105 @@ function CreatePage({
       default:
         break;
     }
-  }, []);
-  const handleDownload = useCallback(
-    async (imageUrl) => {
-      try {
-        addDownloadedImage({ url: imageUrl });
+  };
 
-        const response = await fetch(imageUrl, { mode: "cors" });
-        const blob = await response.blob();
-        const url = window.URL.createObjectURL(blob);
+  const handleDownload = async (imageUrl) => {
+    try {
+      addDownloadedImage({ url: imageUrl });
 
-        const link = document.createElement("a");
-        link.href = url;
+      const response = await fetch(imageUrl, { mode: "cors" });
+      const blob = await response.blob();
+      const url = window.URL.createObjectURL(blob);
 
-        
-        const ImageName = `ai-image-${Date.now()}.jpg`;
-        link.setAttribute("download", ImageName);
+      const link = document.createElement("a");
+      link.href = url;
 
-        document.body.appendChild(link);
-        link.click();
-        document.body.removeChild(link);
-        window.URL.revokeObjectURL(url);
-      } catch (err) {
-        console.error("Download error:", err);
-        setError("Failed to download image.");
-      }
-    },
-    [addDownloadedImage]
-  );
+      const ImageName = `ai-image-${Date.now()}.jpg`;
+      link.setAttribute("download", ImageName);
 
-  const handleSubmit = useCallback(
-    async (e) => {
-      if (e) e.preventDefault();
+      document.body.appendChild(link);
+      link.click();
+      document.body.removeChild(link);
+      window.URL.revokeObjectURL(url);
+    } catch (err) {
+      console.error("Download error:", err);
+      setError("Failed to download image.");
+    }
+  };
 
-      if (!prompt.trim()) {
-        setError("Please enter a prompt");
-        return;
-      }
+  const handleSubmit = async (e) => {
+    if (e) e.preventDefault();
 
-      setLoading(true);
-      setError(null);
-      setGeneratedImages([]);
+    if (!prompt.trim()) {
+      setError("Please enter a prompt");
+      return;
+    }
 
-      // Determine the seed to use
-      let baseSeed;
-      if (seed) {
-        baseSeed = parseInt(seed);
-      } else {
-        baseSeed = generateRandomSeed();
-        setSeed(baseSeed.toString());
-      }
+    setLoading(true);
+    setError(null);
+    setGeneratedImages([]);
 
-      const imagesToGenerate = 9;
-      const successfulImages = [];
+    // Determine the seed to use
+    let baseSeed;
+    if (seed) {
+      baseSeed = parseInt(seed);
+    } else {
+      baseSeed = generateRandomSeed();
+      setSeed(baseSeed.toString());
+    }
 
-      const loadImageWithTimeout = (url, seed) => {
-        return new Promise((resolve, reject) => {
-          const img = new Image();
-          let timedOut = false;
-          const timeout = setTimeout(() => {
-            timedOut = true;
-            reject(new Error("Image load timeout"));
-          }, 10000);
+    const imagesToGenerate = 9;
+    const successfulImages = [];
 
-          img.onload = () => {
-            if (!timedOut) {
-              clearTimeout(timeout);
-              resolve({ url, seed });
-            }
-          };
+    const loadImageWithTimeout = (url, seed) => {
+      return new Promise((resolve, reject) => {
+        const img = new Image();
+        let timedOut = false;
+        const timeout = setTimeout(() => {
+          timedOut = true;
+          reject(new Error("Image load timeout"));
+        }, 10000);
 
-          img.onerror = () => {
-            if (!timedOut) {
-              clearTimeout(timeout);
-              reject(new Error("Image load failed"));
-            }
-          };
-
-          img.src = url;
-        });
-      };
-
-      try {
-        for (let i = 0; i < imagesToGenerate; i++) {
-          const currentSeed = baseSeed + i;
-          const url = `https://image.pollinations.ai/prompt/${encodeURIComponent(
-            `${prompt}${selectedModel ? `,model:${selectedModel}` : ""}`
-          )}?width=${width}&height=${height}&seed=${currentSeed}`;
-
-          try {
-            const img = await loadImageWithTimeout(url, currentSeed);
-            successfulImages.push(img);
-          } catch {
-            successfulImages.push({ url: null, seed: currentSeed });
+        img.onload = () => {
+          if (!timedOut) {
+            clearTimeout(timeout);
+            resolve({ url, seed });
           }
-        }
+        };
 
-        setGeneratedImages(successfulImages);
-      } catch {
-        setError("Something went wrong.");
-      } finally {
-        setLoading(false);
+        img.onerror = () => {
+          if (!timedOut) {
+            clearTimeout(timeout);
+            reject(new Error("Image load failed"));
+          }
+        };
+
+        img.src = url;
+      });
+    };
+
+    try {
+      for (let i = 0; i < imagesToGenerate; i++) {
+        const currentSeed = baseSeed + i;
+        const url = `https://image.pollinations.ai/prompt/${encodeURIComponent(
+          `${prompt}${selectedModel ? `,model:${selectedModel}` : ""}`
+        )}?width=${width}&height=${height}&seed=${currentSeed}`;
+
+        try {
+          const img = await loadImageWithTimeout(url, currentSeed);
+          successfulImages.push(img);
+        } catch {
+          successfulImages.push({ url: null, seed: currentSeed });
+        }
       }
-    },
-    [
-      prompt,
-      selectedModel,
-      width,
-      height,
-      setGeneratedImages,
-      seed,
-      generateRandomSeed,
-    ]
-  );
+
+      setGeneratedImages(successfulImages);
+    } catch {
+      setError("Something went wrong.");
+    } finally {
+      setLoading(false);
+    }
+  };
 
   submitRef.current = () => handleSubmit();
 
