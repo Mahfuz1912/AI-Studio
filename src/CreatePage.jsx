@@ -4,18 +4,35 @@ function CreatePage({
   addDownloadedImage,
   generatedImages,
   setGeneratedImages,
+  prompt,
+  setPrompt,
+  selectedModel,
+  setSelectedModel,
+  width,
+  setWidth,
+  height,
+  setHeight,
+  seed,
+  setSeed,
+  selectedStyle,
+  setSelectedStyle,
 }) {
-  const [prompt, setPrompt] = useState("");
   const [models, setModels] = useState([]);
-  const [selectedModel, setSelectedModel] = useState("flux");
-  const [width, setWidth] = useState(1024);
-  const [height, setHeight] = useState(1024);
   const [loading, setLoading] = useState(false);
   const [error, setError] = useState(null);
   const [isFetchingModels, setIsFetchingModels] = useState(true);
-  const [seed, setSeed] = useState("");
+  const [selectedImage, setSelectedImage] = useState(null);
 
   const submitRef = useRef();
+
+  const stylePresets = [
+    { name: "Realistic", prompt: "realistic, highly detailed, 8k" },
+    { name: "Anime", prompt: "anime style, vibrant colors" },
+    { name: "Watercolor", prompt: "watercolor painting, artistic" },
+    { name: "Cyberpunk", prompt: "cyberpunk style, neon lights" },
+    { name: "Minimalist", prompt: "minimalist, simple, clean" },
+    { name: "Fantasy", prompt: "fantasy art, magical, dreamy" },
+  ];
 
   useEffect(() => {
     const fetchModels = async () => {
@@ -41,8 +58,11 @@ function CreatePage({
     return Math.floor(Math.random() * 1000000000);
   };
 
+  // Generate seed on initial load
   useEffect(() => {
-    setSeed(generateRandomSeed().toString());
+    if (!seed) {
+      setSeed(generateRandomSeed().toString());
+    }
   }, []);
 
   const handleRatioChange = (ratio) => {
@@ -68,9 +88,42 @@ function CreatePage({
     }
   };
 
+  const applyStyle = (style) => {
+    let newPrompt = prompt;
+    if (selectedStyle) {
+      newPrompt = newPrompt.replace(`, ${selectedStyle.prompt}`, "").trim();
+    }
+
+    newPrompt = newPrompt ? `${newPrompt} , ${style.prompt}` : style.prompt;
+
+    setPrompt(newPrompt);
+    setSelectedStyle(style);
+  };
+
+  const openImageDetails = (image) => {
+    setSelectedImage({
+      ...image,
+      prompt: prompt,
+      model: selectedModel,
+      width: width,
+      height: height,
+    });
+  };
+
+  const closeModal = () => {
+    setSelectedImage(null);
+  };
+
   const handleDownload = async (imageUrl) => {
     try {
-      addDownloadedImage({ url: imageUrl });
+      addDownloadedImage({
+        url: imageUrl,
+        prompt: prompt,
+        model: selectedModel,
+        seed: seed,
+        width: width,
+        height: height,
+      });
 
       const response = await fetch(imageUrl, { mode: "cors" });
       const blob = await response.blob();
@@ -78,10 +131,8 @@ function CreatePage({
 
       const link = document.createElement("a");
       link.href = url;
-
       const ImageName = `ai-image-${Date.now()}.jpg`;
       link.setAttribute("download", ImageName);
-
       document.body.appendChild(link);
       link.click();
       document.body.removeChild(link);
@@ -104,7 +155,6 @@ function CreatePage({
     setError(null);
     setGeneratedImages([]);
 
-    // Determine the seed to use
     let baseSeed;
     if (seed) {
       baseSeed = parseInt(seed);
@@ -148,7 +198,7 @@ function CreatePage({
         const currentSeed = baseSeed + i;
         const url = `https://image.pollinations.ai/prompt/${encodeURIComponent(
           `${prompt}${selectedModel ? `,model:${selectedModel}` : ""}`
-        )}?width=${width}&height=${height}&seed=${currentSeed}`;
+        )}?width=${width}&height=${height}&seed=${currentSeed}&nologo=true`;
 
         try {
           const img = await loadImageWithTimeout(url, currentSeed);
@@ -273,6 +323,44 @@ function CreatePage({
 
           <div>
             <label className="block text-sm font-medium text-zinc-700 mb-1">
+              Style Presets
+            </label>
+            <select
+              className="w-full px-3 py-2 bg-zinc-900/10 border border-zinc-700/70 rounded-md focus:ring-2 focus:ring-blue-500 focus:border-blue-500 transition-colors"
+              value={selectedStyle?.name || ""}
+              onChange={(e) => {
+                const selected = stylePresets.find(
+                  (style) => style.name === e.target.value
+                );
+                if (selected) {
+                  applyStyle(selected);
+                } else {
+                  setSelectedStyle(null);
+                  if (selectedStyle) {
+                    setPrompt((prev) =>
+                      prev.replace(`, ${selectedStyle.prompt}`, "").trim()
+                    );
+                  }
+                }
+              }}
+            >
+              <option value="" className="bg-zinc-900">
+                No Style
+              </option>
+              {stylePresets.map((style) => (
+                <option
+                  key={style.name}
+                  value={style.name}
+                  className="bg-zinc-900"
+                >
+                  {style.name}
+                </option>
+              ))}
+            </select>
+          </div>
+
+          <div>
+            <label className="block text-sm font-medium text-zinc-700 mb-1">
               Seed (for reproducible results)
             </label>
             <input
@@ -364,6 +452,22 @@ function CreatePage({
                 key={`${image.seed}-${index}`}
                 className="image-card rounded-xl overflow-hidden relative"
               >
+                <div
+                  className="cursor-pointer"
+                  onClick={() => image.url && openImageDetails(image)}
+                >
+                  {image.url ? (
+                    <img
+                      src={image.url}
+                      alt={`Generated ${index + 1}`}
+                      className="w-full h-48 object-cover"
+                    />
+                  ) : (
+                    <div className="w-full h-48 flex items-center justify-center text-red-500 bg-zinc-800 text-sm">
+                      Unable to load
+                    </div>
+                  )}
+                </div>
                 <div className="absolute bottom-2 right-2 p-1">
                   <button
                     onClick={() => image.url && handleDownload(image.url)}
@@ -387,22 +491,99 @@ function CreatePage({
                     </svg>
                   </button>
                 </div>
-                {image.url ? (
-                  <img
-                    src={image.url}
-                    alt={`Generated ${index + 1}`}
-                    className="w-full h-48 object-cover"
-                  />
-                ) : (
-                  <div className="w-full h-48 flex items-center justify-center text-red-500 bg-zinc-800 text-sm">
-                    Unable to load
-                  </div>
-                )}
               </div>
             ))}
           </div>
         )}
       </div>
+
+      {selectedImage && (
+        <div className="fixed inset-0 bg-black bg-opacity-75 flex items-center justify-center z-50 p-4">
+          <div className="bg-zinc-900 rounded-lg max-w-4xl w-full max-h-[90vh] overflow-auto">
+            <div className="p-6">
+              <div className="flex justify-between items-start mb-4">
+                <h3 className="text-2xl font-extrabold">Image Details</h3>
+                <button
+                  onClick={closeModal}
+                  className="text-zinc-400 cursor-pointer hover:text-white"
+                >
+                  <svg
+                    xmlns="http://www.w3.org/2000/svg"
+                    className="h-6 w-6"
+                    fill="none"
+                    viewBox="0 0 24 24"
+                    stroke="currentColor"
+                  >
+                    <path
+                      strokeLinecap="round"
+                      strokeLinejoin="round"
+                      strokeWidth={2}
+                      d="M6 18L18 6M6 6l12 12"
+                    />
+                  </svg>
+                </button>
+              </div>
+
+              <div className="grid grid-cols-1 md:grid-cols-2 gap-6">
+                <div className="flex justify-center">
+                  <img
+                    src={selectedImage.url}
+                    alt="Detailed view"
+                    className="max-h-[70vh] max-w-full rounded-lg"
+                  />
+                </div>
+                <div>
+                  <div className="space-y-4">
+                    <div>
+                      <h4 className=" font-medium text-zinc-400">Prompt</h4>
+                      <p className="text-white text-sm">
+                        {selectedImage.prompt}
+                      </p>
+                    </div>
+                    <div>
+                      <h4 className="font-medium text-zinc-400">Model</h4>
+                      <p className="text-white text-sm">
+                        {selectedImage.model}
+                      </p>
+                    </div>
+                    <div>
+                      <h4 className=" font-medium text-zinc-400">Seed</h4>
+                      <p className="text-white text-sm">{selectedImage.seed}</p>
+                    </div>
+                    <div>
+                      <h4 className=" font-medium text-zinc-400">Resolution</h4>
+                      <p className="text-white text-sm">
+                        {selectedImage.width} × {selectedImage.height}
+                      </p>
+                    </div>
+                  </div>
+                  <button
+                    onClick={() => handleDownload(selectedImage.url)}
+                    className="mt-6 bg-blue-600 cursor-pointer hover:bg-blue-700 text-white py-2 px-4 rounded-md flex items-center gap-2"
+                  >
+                    <svg
+                      xmlns="http://www.w3.org/2000/svg"
+                      width="16"
+                      height="16"
+                      viewBox="0 0 24 24"
+                      fill="none"
+                      stroke="currentColor"
+                      strokeWidth="2"
+                      strokeLinecap="round"
+                      strokeLinejoin="round"
+                    >
+                      <path d="M21 15v4a2 2 0 0 1-2 2H5a2 2 0 0 1-2-2v-4" />
+                      <polyline points="7 10 12 15 17 10" />
+                      <line x1="12" y1="15" x2="12" y2="3" />
+                    </svg>
+                    Download Image
+                  </button>
+                </div>
+              </div>
+            </div>
+          </div>
+        </div>
+      )}
     </>
   );
 }

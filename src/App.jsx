@@ -8,11 +8,30 @@ function App() {
   const [downloadedImages, setDownloadedImages] = useState([]);
   const [generatedImages, setGeneratedImages] = useState([]);
 
+  // States moved from CreatePage to App.jsx
+  const [prompt, setPrompt] = useState("");
+  const [selectedModel, setSelectedModel] = useState("flux");
+  const [width, setWidth] = useState(1024);
+  const [height, setHeight] = useState(1024);
+  const [seed, setSeed] = useState("");
+  const [selectedStyle, setSelectedStyle] = useState(null);
+
   const addDownloadedImage = (imageObj) => {
     setDownloadedImages((prev) => {
       const exists = prev.some((img) => img.url === imageObj.url);
       if (exists) return prev;
-      return [...prev, { url: imageObj.url, id: Date.now() }];
+      return [
+        ...prev,
+        {
+          url: imageObj.url,
+          id: Date.now(),
+          prompt: imageObj.prompt || "",
+          model: imageObj.model || "",
+          seed: imageObj.seed || "",
+          width: imageObj.width || 0,
+          height: imageObj.height || 0,
+        },
+      ];
     });
   };
 
@@ -60,6 +79,18 @@ function App() {
             addDownloadedImage={addDownloadedImage}
             generatedImages={generatedImages}
             setGeneratedImages={setGeneratedImages}
+            prompt={prompt}
+            setPrompt={setPrompt}
+            selectedModel={selectedModel}
+            setSelectedModel={setSelectedModel}
+            width={width}
+            setWidth={setWidth}
+            height={height}
+            setHeight={setHeight}
+            seed={seed}
+            setSeed={setSeed}
+            selectedStyle={selectedStyle}
+            setSelectedStyle={setSelectedStyle}
           />
         ) : (
           <DownloadPage downloadedImages={downloadedImages} />
