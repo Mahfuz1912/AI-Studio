@@ -80,7 +80,7 @@ function DownloadPage({ downloadedImages, deleteImage, updateImageMetadata }) {
           <div className="flex gap-2">
             <button
               onClick={handleRemoveSelected}
-              className="bg-red-600 hover:bg-red-700 text-white py-2 px-4 rounded-md flex items-center gap-2"
+              className="bg-red-600 hover:bg-red-700 cursor-pointer text-white py-2 px-4 rounded-md flex items-center gap-2"
             >
               <svg
                 xmlns="http://www.w3.org/2000/svg"
@@ -101,7 +101,7 @@ function DownloadPage({ downloadedImages, deleteImage, updateImageMetadata }) {
             <button
               onClick={handleBulkDownload}
               disabled={isBulkDownloading}
-              className="bg-blue-600 hover:bg-blue-700 text-white py-2 px-4 rounded-md flex items-center gap-2"
+              className="bg-blue-600 cursor-pointer hover:bg-blue-700 text-white py-2 px-4 rounded-md flex items-center gap-2"
             >
               {isBulkDownloading ? (
                 <>
@@ -196,7 +196,7 @@ function DownloadPage({ downloadedImages, deleteImage, updateImageMetadata }) {
               {sortedImages.map((image) => (
                 <div
                   key={image.id}
-                  className={`image-card rounded-xl overflow-hidden relative cursor-pointer transition-all ${
+                  className={`image-card rounded-xl overflow-hidden relative transition-all ${
                     selectedImages.includes(image.id)
                       ? "ring-2 ring-blue-500"
                       : ""
@@ -208,13 +208,13 @@ function DownloadPage({ downloadedImages, deleteImage, updateImageMetadata }) {
                       checked={selectedImages.includes(image.id)}
                       onChange={() => toggleSelectImage(image.id)}
                       onClick={(e) => e.stopPropagation()}
-                      className="h-4 w-4 rounded border-zinc-700 text-blue-600 focus:ring-blue-500"
+                      className="h-4 w-4 cursor-pointer rounded border-zinc-700 text-blue-600 focus:ring-blue-500"
                     />
                   </div>
 
                   {!selectedImages.includes(image.id) && (
                     <div
-                      className="absolute top-2 right-2 z-10"
+                      className="absolute cursor-pointer top-2 right-2 z-10"
                       onClick={(e) => {
                         e.stopPropagation();
                         deleteImage(image.id);
@@ -261,7 +261,7 @@ function DownloadPage({ downloadedImages, deleteImage, updateImageMetadata }) {
                       <h3 className="text-xl font-bold">Image Details</h3>
                       <button
                         onClick={closeModal}
-                        className="text-zinc-400 hover:text-white"
+                        className="text-zinc-400 cursor-pointer hover:text-white"
                       >
                         <svg
                           xmlns="http://www.w3.org/2000/svg"
@@ -366,7 +366,7 @@ function DownloadPage({ downloadedImages, deleteImage, updateImageMetadata }) {
                               );
                               closeModal();
                             }}
-                            className="bg-blue-600 hover:bg-blue-700 text-white py-2 px-4 rounded-md flex items-center gap-2"
+                            className="bg-blue-600 hover:bg-blue-700 text-white py-2 px-4 rounded-md flex items-center gap-2 cursor-pointer"
                           >
                             <svg
                               xmlns="http://www.w3.org/2000/svg"
@@ -390,7 +390,7 @@ function DownloadPage({ downloadedImages, deleteImage, updateImageMetadata }) {
                               deleteImage(selectedImage.id);
                               closeModal();
                             }}
-                            className="bg-red-600 hover:bg-red-700 text-white py-2 px-4 rounded-md flex items-center gap-2"
+                            className="bg-red-600 hover:bg-red-700 text-white py-2 px-4 rounded-md flex items-center gap-2 cursor-pointer"
                           >
                             <svg
                               xmlns="http://www.w3.org/2000/svg"
