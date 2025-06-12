@@ -22,17 +22,99 @@ function CreatePage({
   const [error, setError] = useState(null);
   const [isFetchingModels, setIsFetchingModels] = useState(true);
   const [selectedImage, setSelectedImage] = useState(null);
+  const [generationCache, setGenerationCache] = useState({});
 
   const submitRef = useRef();
 
   const stylePresets = [
-    { name: "Realistic", prompt: "realistic, highly detailed, 8k" },
-    { name: "Anime", prompt: "anime style, vibrant colors" },
-    { name: "Watercolor", prompt: "watercolor painting, artistic" },
-    { name: "Cyberpunk", prompt: "cyberpunk style, neon lights" },
-    { name: "Minimalist", prompt: "minimalist, simple, clean" },
-    { name: "Fantasy", prompt: "fantasy art, magical, dreamy" },
+    {
+      name: "Realistic",
+      prompt:
+        "realistic, highly detailed, 4k, lifelike images with fine details and natural textures",
+    },
+    {
+      name: "Watercolor",
+      prompt:
+        "watercolor painting, artistic, soft and flowing paint effect resembling hand-drawn watercolor artwork",
+    },
+    {
+      name: "Anime",
+      prompt:
+        "anime style, vibrant colors, stylized characters and scenes inspired by Japanese anime art",
+    },
+    {
+      name: "Cyberpunk",
+      prompt:
+        "cyberpunk style, neon lights, futuristic scenes with neon glow and dark tones",
+    },
+    {
+      name: "Minimalist",
+      prompt:
+        "minimalist, simple, clean, minimal elements with soft colors and a modern aesthetic",
+    },
+    {
+      name: "Fantasy",
+      prompt:
+        "fantasy art, magical, dreamy, mystical environments and characters from a fantasy world",
+    },
+    {
+      name: "Oil Painting",
+      prompt:
+        "oil painting, textured brush strokes, classic painting style with rich color blending",
+    },
+    {
+      name: "Pixel Art",
+      prompt:
+        "pixel art, 8-bit style, retro pixel-style visuals like old-school video games",
+    },
+    {
+      name: "Sketch",
+      prompt:
+        "pencil sketch, hand drawn, black and white hand-drawn appearance with fine lines",
+    },
+    {
+      name: "3D Render",
+      prompt:
+        "3d render, CGI, realistic lighting, computer-generated depth and lighting like 3D modeling",
+    },
+    {
+      name: "Cartoon",
+      prompt:
+        "cartoon style, bold lines, bright colors, playful and exaggerated features like animations",
+    },
+    {
+      name: "Surreal",
+      prompt:
+        "surrealism, dreamlike, abstract, imaginative visuals that challenge reality",
+    },
+    {
+      name: "Logo (Generic)",
+      prompt:
+        "minimalist logo design, flat vector style, high contrast, modern, clean lines, branding quality, white background",
+    },
+    {
+      name: "Logo (Tech Company)",
+      prompt:
+        "technology logo, flat design, blue color scheme, futuristic, vector style, professional, branding ready",
+    },
+    {
+      name: "Logo (Game Studio)",
+      prompt:
+        "gaming logo, emblem style, aggressive, vibrant colors, neon highlights, esport team logo, bold vector style",
+    },
+    {
+      name: "Logo (Organic Product)",
+      prompt:
+        "eco-friendly logo, green color palette, natural elements, leaves and plants, hand-drawn vector style",
+    },
+    {
+      name: "Logo (Fashion Brand)",
+      prompt:
+        "luxury fashion brand logo, elegant serif font, black and gold, minimal, high-end branding aesthetic",
+    },
   ];
+
+  // ... (stylePresets array remains the same)
 
   useEffect(() => {
     const fetchModels = async () => {
@@ -52,7 +134,7 @@ function CreatePage({
       }
     };
     fetchModels();
-  }, []);
+  }, [setSelectedModel]);
 
   const generateRandomSeed = () => {
     return Math.floor(Math.random() * 1000000000);
@@ -60,10 +142,9 @@ function CreatePage({
 
   // Generate seed on initial load
   useEffect(() => {
-    if (!seed) {
-      setSeed(generateRandomSeed().toString());
-    }
-  }, []);
+    if (!width) setWidth(1024);
+    if (!height) setHeight(1024);
+  }, [setWidth, setHeight, width, height]);
 
   const handleRatioChange = (ratio) => {
     switch (ratio) {
@@ -89,15 +170,13 @@ function CreatePage({
   };
 
   const applyStyle = (style) => {
-    let newPrompt = prompt;
-    if (selectedStyle) {
-      newPrompt = newPrompt.replace(`, ${selectedStyle.prompt}`, "").trim();
-    }
-
-    newPrompt = newPrompt ? `${newPrompt} , ${style.prompt}` : style.prompt;
-
-    setPrompt(newPrompt);
     setSelectedStyle(style);
+  };
+
+  const getFullPrompt = () => {
+    return selectedStyle
+      ? `${prompt}${prompt ? ", " : ""}${selectedStyle.prompt}`
+      : prompt;
   };
 
   const openImageDetails = (image) => {
@@ -107,6 +186,8 @@ function CreatePage({
       model: selectedModel,
       width: width,
       height: height,
+      style: selectedStyle?.name || null,
+      timestamp: new Date().toISOString(),
     });
   };
 
@@ -116,14 +197,21 @@ function CreatePage({
 
   const handleDownload = async (imageUrl) => {
     try {
-      addDownloadedImage({
+      const headResponse = await fetch(imageUrl, { method: "HEAD" });
+      if (!headResponse.ok) throw new Error("Image not available");
+
+      const imageData = {
         url: imageUrl,
         prompt: prompt,
         model: selectedModel,
         seed: seed,
         width: width,
         height: height,
-      });
+        style: selectedStyle?.name || null,
+        timestamp: new Date().toISOString(),
+      };
+
+      addDownloadedImage(imageData);
 
       const response = await fetch(imageUrl, { mode: "cors" });
       const blob = await response.blob();
@@ -131,40 +219,21 @@ function CreatePage({
 
       const link = document.createElement("a");
       link.href = url;
-      const ImageName = `ai-image-${Date.now()}.jpg`;
-      link.setAttribute("download", ImageName);
+      const imageName = `ai-image-${Date.now()}.jpg`;
+      link.setAttribute("download", imageName);
       document.body.appendChild(link);
       link.click();
       document.body.removeChild(link);
       window.URL.revokeObjectURL(url);
     } catch (err) {
       console.error("Download error:", err);
-      setError("Failed to download image.");
+      setError(`Failed to download image: ${err.message}`);
     }
   };
 
-  const handleSubmit = async (e) => {
-    if (e) e.preventDefault();
-
-    if (!prompt.trim()) {
-      setError("Please enter a prompt");
-      return;
-    }
-
-    setLoading(true);
-    setError(null);
-    setGeneratedImages([]);
-
-    let baseSeed;
-    if (seed) {
-      baseSeed = parseInt(seed);
-    } else {
-      baseSeed = generateRandomSeed();
-      setSeed(baseSeed.toString());
-    }
-
-    const imagesToGenerate = 9;
-    const successfulImages = [];
+  const generateImageBatch = async (startIndex, count, passedSeed = null) => {
+    const fullPrompt = getFullPrompt();
+    const batchImages = [];
 
     const loadImageWithTimeout = (url, seed) => {
       return new Promise((resolve, reject) => {
@@ -173,7 +242,7 @@ function CreatePage({
         const timeout = setTimeout(() => {
           timedOut = true;
           reject(new Error("Image load timeout"));
-        }, 10000);
+        }, 15000);
 
         img.onload = () => {
           if (!timedOut) {
@@ -193,33 +262,72 @@ function CreatePage({
       });
     };
 
-    try {
-      for (let i = 0; i < imagesToGenerate; i++) {
-        const currentSeed = baseSeed + i;
-        const url = `https://image.pollinations.ai/prompt/${encodeURIComponent(
-          `${prompt}${selectedModel ? `,model:${selectedModel}` : ""}`
-        )}?width=${width}&height=${height}&seed=${currentSeed}&nologo=true`;
+    for (let i = 0; i < count; i++) {
+      const currentSeed = passedSeed ? passedSeed + startIndex + i : null;
+      const baseUrl = `https://image.pollinations.ai/prompt/${encodeURIComponent(
+        `${fullPrompt}${selectedModel ? `,model:${selectedModel}` : ""}`
+      )}?width=${width}&height=${height}&nologo=true`;
 
-        try {
-          const img = await loadImageWithTimeout(url, currentSeed);
-          successfulImages.push(img);
-        } catch {
-          successfulImages.push({ url: null, seed: currentSeed });
-        }
+      const url = currentSeed ? `${baseUrl}&seed=${currentSeed}` : baseUrl;
+
+      try {
+        const img = await loadImageWithTimeout(url, currentSeed);
+        batchImages.push(img);
+      } catch {
+        batchImages.push({ url: null, seed: currentSeed });
       }
+    }
 
-      setGeneratedImages(successfulImages);
+    return batchImages;
+  };
+
+  const handleSubmit = async (e) => {
+    if (e) e.preventDefault();
+
+    const fullPrompt = getFullPrompt();
+    if (!fullPrompt.trim()) {
+      setError("Please enter a prompt");
+      return;
+    }
+    let currentSeed = seed;
+    if (!currentSeed || currentSeed.toString().trim() === "") {
+      currentSeed = generateRandomSeed();
+      setSeed(currentSeed);
+    }
+
+    // Caching logic
+    const cacheKey = `${fullPrompt}-${
+      currentSeed || "random"
+    }-${selectedModel}-${width}-${height}-${selectedStyle?.name || "no-style"}`;
+
+    if (generationCache[cacheKey]) {
+      setGeneratedImages(generationCache[cacheKey]);
+      return;
+    }
+
+    setLoading(true);
+    try {
+      const firstBatch = await generateImageBatch(
+        0,
+        9,
+        currentSeed ? parseInt(currentSeed) : null
+      );
+      setGeneratedImages(firstBatch);
+      setGenerationCache((prev) => ({ ...prev, [cacheKey]: firstBatch }));
     } catch {
-      setError("Something went wrong.");
+      setError("Failed to generate images.");
     } finally {
       setLoading(false);
     }
   };
-
   submitRef.current = () => handleSubmit();
 
   const handleSeedChange = (e) => {
-    setSeed(e.target.value);
+    const value = e.target.value;
+    // Allow empty string or valid numbers
+    if (value === "" || (!isNaN(value) && parseInt(value) >= 0)) {
+      setSeed(value);
+    }
   };
 
   return (
@@ -310,7 +418,6 @@ function CreatePage({
                 className="w-full px-3 py-2 bg-zinc-900/10 border border-zinc-700/70 rounded-md focus:ring-2 focus:ring-blue-500 focus:border-blue-500 transition-colors"
                 value={selectedModel}
                 onChange={(e) => setSelectedModel(e.target.value)}
-                disabled={isFetchingModels}
               >
                 {models.map((model) => (
                   <option key={model} value={model} className="bg-zinc-900">
@@ -332,16 +439,7 @@ function CreatePage({
                 const selected = stylePresets.find(
                   (style) => style.name === e.target.value
                 );
-                if (selected) {
-                  applyStyle(selected);
-                } else {
-                  setSelectedStyle(null);
-                  if (selectedStyle) {
-                    setPrompt((prev) =>
-                      prev.replace(`, ${selectedStyle.prompt}`, "").trim()
-                    );
-                  }
-                }
+                applyStyle(selected || null);
               }}
             >
               <option value="" className="bg-zinc-900">
@@ -361,24 +459,11 @@ function CreatePage({
 
           <div>
             <label className="block text-sm font-medium text-zinc-700 mb-1">
-              Seed (for reproducible results)
-            </label>
-            <input
-              type="number"
-              className="w-full bg-zinc-900/10 px-3 py-2 border border-zinc-700/70 rounded-md focus:ring-2 focus:ring-blue-500 focus:border-blue-500 transition-colors"
-              placeholder="Random seed will be generated"
-              value={seed}
-              onChange={handleSeedChange}
-            />
-          </div>
-
-          <div>
-            <label className="block text-sm font-medium text-zinc-700 mb-1">
               Width
             </label>
             <input
               type="number"
-              className="w-full bg-zinc-900/10 px-3 py-2 border border-zinc-700/70 rounded-md focus:ring-2 focus:ring-blue-500 focus:border-blue-500 transition-colors"
+              className="w-full bg-zinc-900/10 px-3 py-2 border border-zinc-700/70 rounded-md"
               value={width}
               onChange={(e) => setWidth(Number(e.target.value))}
             />
@@ -390,9 +475,22 @@ function CreatePage({
             </label>
             <input
               type="number"
-              className="w-full bg-zinc-900/10 px-3 py-2 border border-zinc-700/70 rounded-md focus:ring-2 focus:ring-blue-500 focus:border-blue-500 transition-colors"
+              className="w-full bg-zinc-900/10 px-3 py-2 border border-zinc-700/70 rounded-md"
               value={height}
               onChange={(e) => setHeight(Number(e.target.value))}
+            />
+          </div>
+
+          <div>
+            <label className="block text-sm font-medium text-zinc-700 mb-1">
+              Seed (for reproducible results)
+            </label>
+            <input
+              type="number"
+              className="w-full bg-zinc-900/10 px-3 py-2 border border-zinc-700/70 rounded-md"
+              value={seed || ""}
+              placeholder="Leave Empty OR Set Seed"
+              onChange={handleSeedChange}
             />
           </div>
 
@@ -401,16 +499,29 @@ function CreatePage({
               Aspect Ratio Presets
             </label>
             <div className="flex flex-wrap gap-2">
-              {["1:1", "16:9", "4:3", "3:2"].map((r) => (
-                <button
-                  key={r}
-                  type="button"
-                  className="rounded-md border border-zinc-700 px-2 py-1 text-xs hover:bg-zinc-700/30 transition"
-                  onClick={() => handleRatioChange(r)}
-                >
-                  {r}
-                </button>
-              ))}
+              {[
+                { ratio: "1:1", width: 1024, height: 1024 },
+                { ratio: "16:9", width: 1920, height: 1080 },
+                { ratio: "4:3", width: 1600, height: 1200 },
+                { ratio: "3:2", width: 1200, height: 800 },
+              ].map((preset) => {
+                const isActive =
+                  width === preset.width && height === preset.height;
+                return (
+                  <button
+                    key={preset.ratio}
+                    type="button"
+                    className={`rounded-md border px-2 py-1 text-xs transition ${
+                      isActive
+                        ? "bg-blue-600 border-blue-600"
+                        : "border-zinc-700 hover:bg-zinc-700/30"
+                    }`}
+                    onClick={() => handleRatioChange(preset.ratio)}
+                  >
+                    {preset.ratio}
+                  </button>
+                );
+              })}
             </div>
           </div>
         </div>
@@ -446,50 +557,46 @@ function CreatePage({
             </svg>
           </div>
         ) : (
-          <div className="grid grid-cols-1 sm:grid-cols-2 md:grid-cols-3 gap-4">
+          <div className="grid grid-cols-1 sm:grid-cols-3 gap-4 mb-6">
             {generatedImages.map((image, index) => (
               <div
-                key={`${image.seed}-${index}`}
-                className="image-card rounded-xl overflow-hidden relative"
+                key={index}
+                className="image-card rounded-xl overflow-hidden relative bg-zinc-800"
               >
-                <div
-                  className="cursor-pointer"
-                  onClick={() => image.url && openImageDetails(image)}
-                >
-                  {image.url ? (
-                    <img
-                      src={image.url}
-                      alt={`Generated ${index + 1}`}
-                      className="w-full h-48 object-cover"
-                    />
-                  ) : (
-                    <div className="w-full h-48 flex items-center justify-center text-red-500 bg-zinc-800 text-sm">
-                      Unable to load
-                    </div>
-                  )}
-                </div>
+                {image.url ? (
+                  <img
+                    src={image.url}
+                    alt={`Generated ${index + 1}`}
+                    className="w-full h-48 object-cover"
+                    onClick={() => image.url && openImageDetails(image)}
+                  />
+                ) : (
+                  <div className="w-full h-48 flex items-center justify-center text-red-500">
+                    Unable to load
+                  </div>
+                )}
                 <div className="absolute bottom-2 right-2 p-1">
-                  <button
-                    onClick={() => image.url && handleDownload(image.url)}
-                  >
-                    <svg
-                      xmlns="http://www.w3.org/2000/svg"
-                      width="24"
-                      height="24"
-                      viewBox="0 0 24 24"
-                      fill="none"
-                      stroke="currentColor"
-                      strokeWidth="2"
-                      strokeLinecap="round"
-                      strokeLinejoin="round"
-                      className="cursor-pointer lucide lucide-image-down"
-                    >
-                      <path d="M10.3 21H5a2 2 0 0 1-2-2V5a2 2 0 0 1 2-2h14a2 2 0 0 1 2 2v10l-3.1-3.1a2 2 0 0 0-2.814.014L6 21" />
-                      <path d="m14 19 3 3v-5.5" />
-                      <path d="m17 22 3-3" />
-                      <circle cx="9" cy="9" r="2" />
-                    </svg>
-                  </button>
+                  {image.url && (
+                    <button onClick={() => handleDownload(image.url)}>
+                      <svg
+                        xmlns="http://www.w3.org/2000/svg"
+                        width="24"
+                        height="24"
+                        viewBox="0 0 24 24"
+                        fill="none"
+                        stroke="currentColor"
+                        strokeWidth="2"
+                        strokeLinecap="round"
+                        strokeLinejoin="round"
+                        className="cursor-pointer lucide lucide-image-down"
+                      >
+                        <path d="M10.3 21H5a2 2 0 0 1-2-2V5a2 2 0 0 1 2-2h14a2 2 0 0 1 2 2v10l-3.1-3.1a2 2 0 0 0-2.814.014L6 21" />
+                        <path d="m14 19 3 3v-5.5" />
+                        <path d="m17 22 3-3" />
+                        <circle cx="9" cy="9" r="2" />
+                      </svg>
+                    </button>
+                  )}
                 </div>
               </div>
             ))}
@@ -535,11 +642,19 @@ function CreatePage({
                 <div>
                   <div className="space-y-4">
                     <div>
-                      <h4 className=" font-medium text-zinc-400">Prompt</h4>
+                      <h4 className="font-medium text-zinc-400">Prompt</h4>
                       <p className="text-white text-sm">
                         {selectedImage.prompt}
                       </p>
                     </div>
+                    {selectedImage.style && (
+                      <div>
+                        <h4 className="font-medium text-zinc-400">Style</h4>
+                        <p className="text-white text-sm">
+                          {selectedImage.style}
+                        </p>
+                      </div>
+                    )}
                     <div>
                       <h4 className="font-medium text-zinc-400">Model</h4>
                       <p className="text-white text-sm">
@@ -547,13 +662,19 @@ function CreatePage({
                       </p>
                     </div>
                     <div>
-                      <h4 className=" font-medium text-zinc-400">Seed</h4>
+                      <h4 className="font-medium text-zinc-400">Seed</h4>
                       <p className="text-white text-sm">{selectedImage.seed}</p>
                     </div>
                     <div>
-                      <h4 className=" font-medium text-zinc-400">Resolution</h4>
+                      <h4 className="font-medium text-zinc-400">Resolution</h4>
                       <p className="text-white text-sm">
                         {selectedImage.width} × {selectedImage.height}
+                      </p>
+                    </div>
+                    <div>
+                      <h4 className="font-medium text-zinc-400">Created</h4>
+                      <p className="text-white text-sm">
+                        {new Date(selectedImage.timestamp).toLocaleString()}
                       </p>
                     </div>
                   </div>

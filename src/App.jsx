@@ -1,14 +1,15 @@
-import { useState } from "react";
+import { useEffect, useState } from "react";
 import CreatePage from "./CreatePage";
 import DownloadPage from "./DownloadPage";
 import IMG from "/public/logo.svg";
 
 function App() {
   const [route, setRoute] = useState("create");
-  const [downloadedImages, setDownloadedImages] = useState([]);
+  const [downloadedImages, setDownloadedImages] = useState(() => {
+    const saved = localStorage.getItem("downloadedImages");
+    return saved ? JSON.parse(saved) : [];
+  });
   const [generatedImages, setGeneratedImages] = useState([]);
-
-  // States moved from CreatePage to App.jsx
   const [prompt, setPrompt] = useState("");
   const [selectedModel, setSelectedModel] = useState("flux");
   const [width, setWidth] = useState(1024);
@@ -16,23 +17,36 @@ function App() {
   const [seed, setSeed] = useState("");
   const [selectedStyle, setSelectedStyle] = useState(null);
 
+  useEffect(() => {
+    localStorage.setItem("downloadedImages", JSON.stringify(downloadedImages));
+  }, [downloadedImages]);
+
   const addDownloadedImage = (imageObj) => {
     setDownloadedImages((prev) => {
       const exists = prev.some((img) => img.url === imageObj.url);
       if (exists) return prev;
-      return [
-        ...prev,
-        {
-          url: imageObj.url,
-          id: Date.now(),
-          prompt: imageObj.prompt || "",
-          model: imageObj.model || "",
-          seed: imageObj.seed || "",
-          width: imageObj.width || 0,
-          height: imageObj.height || 0,
-        },
-      ];
+      const newImage = {
+        ...imageObj,
+        id: Date.now(),
+        prompt: imageObj.prompt || "",
+        model: imageObj.model || "",
+        seed: imageObj.seed || "",
+        width: imageObj.width || 0,
+        height: imageObj.height || 0,
+        tags: imageObj.tags || [],
+      };
+      return [newImage, ...prev];
     });
+  };
+
+  const deleteDownloadedImage = (id) => {
+    setDownloadedImages((prev) => prev.filter((img) => img.id !== id));
+  };
+
+  const updateImageMetadata = (id, updates) => {
+    setDownloadedImages((prev) =>
+      prev.map((img) => (img.id === id ? { ...img, ...updates } : img))
+    );
   };
 
   return (
@@ -64,7 +78,7 @@ function App() {
               route === "download" ? "font-medium text-zinc-200" : ""
             }`}
           >
-            Downloaded
+            Downloads ({downloadedImages.length})
           </a>
         </ul>
       </header>
@@ -93,7 +107,11 @@ function App() {
             setSelectedStyle={setSelectedStyle}
           />
         ) : (
-          <DownloadPage downloadedImages={downloadedImages} />
+          <DownloadPage
+            downloadedImages={downloadedImages}
+            deleteImage={deleteDownloadedImage}
+            updateImageMetadata={updateImageMetadata}
+          />
         )}
       </main>
     </div>
